@@ -30,9 +30,9 @@ CHIP ALU {
     IN  
         x[16], y[16],  // 16-bit inputs        
         zx, // zero the x input?
-        nx, // negate the x input?
+        nx, // flip the x input?
         zy, // zero the y input?
-        ny, // negate the y input?
+        ny, // flip the y input?
         f,  // compute out = x + y (if 1) or x & y (if 0)
         no; // negate the out output?
 
@@ -42,5 +42,50 @@ CHIP ALU {
         ng; // 1 if (out < 0),  0 otherwise
 
     PARTS:
-   // Put you code here:
+    // main output
+    Not16(in=x, out=notx);
+    And16(a=x, b=notx, out=zero16, out[0]=zero);
+    Mux16(a=x, b=zero16 ,sel=zx, out=x1);
+    Mux16(a=y, b=zero16 ,sel=zy, out=y1);
+    Not16(in=x1, out=notx1);
+    Not16(in=y1, out=noty1);
+    Mux16(a=x1, b=notx1, sel=nx, out=x2);
+    Mux16(a=y1, b=noty1, sel=ny, out=y2);
+    And16(a=x2, b=y2, out=andxy);
+    Add16(a=x2, b=y2, out=addxy);
+    Mux16(a=andxy, b=addxy, sel=f, out=o1);
+    Not16(in=o1, out=noto1);
+    Mux16(a=o1, b=noto1, sel=no, out=out, out=output, out[0..7]=output0, out[8..15]=output1);
+
+    // zr status output
+    Or8Way(in=output0, out=zr0);
+    Or8Way(in=output1, out=zr1);
+    Or(a=zr0, b=zr1, out=zr2);
+    Not(in=zr2, out=zr, out=zrout);
+
+    // ng status output
+    Not16(in=output, out=notoutput);
+    Inc16(in=notoutput, out[15]=complimentsign);
+    Not(in=complimentsign, out=ngout);
+    // 2s compliment piecewise: handle 0 
+    And(a=zr2, b=ngout, out=ng);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
