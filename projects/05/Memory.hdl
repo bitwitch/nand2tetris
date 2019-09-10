@@ -27,5 +27,44 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+    /*
+    if high bit not set, address in ram memory
+    if high bit set and second highest bit not set, address in screen memory
+    if the 2 highest bits are set, then >= 0x6000
+    if the 2 highest bits are set and any other bit is set, then > 0x6000 INVALID
+
+    0x0000->0x3FFF is RAM
+    0x4000->0x5FFF is screen
+        0x4000->0x4FFF RAM4K chip
+        0x5000->0x5FFF RAM4K chip
+    0x6000 is keyboard
+
+    high-bits           dest
+    00                  ram
+    01                  ram
+    10                  screen
+    11                  keyboard / invalid
+
+    */
+
+    DMux4Way(in=load, sel=address[13..14], a=ram1, b=ram2, c=screen, d=keymaybe);
+    Or(a=ram1, b=ram2, out=ram);
+    DMux(in=screen, sel=address[12], a=screen1, b=screen2);
+
+    // if 2 high bits are set and any of the low 13 bits are set, invalid
+    Or8Way(in=address[0..7], out=low8);
+    Or8Way(in=address[5..12], out=bits5to12);
+    Or(a=low8, b=bits5to12, out=maybevalid);
+    DMux(in=keymaybe, sel=maybevalid, a=keyboard, b=garbage);
+
+    // RAM
+    RAM16K(in=in, load=ram, address=address[0..13], out=ramout);
+    // SCREEN
+    RAM4K(in=in, load=screen1, address=address[0..11], out=screen1out);
+    RAM4K(in=in, load=screen2, address=address[0..11], out=screen2out);
+    // KEYBOARD
+    Register(in=in, load=keyboard, out=keyboardout);
+
+    Mux16(a=screen1out, b=screen2out, sel=address[12], out=screenout);
+    Mux4Way16(a=ramout, b=ramout, c=screenout, d=keyboardout, sel=address[13..14], out=out);
 }
